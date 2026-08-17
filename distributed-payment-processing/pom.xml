@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.payment</groupId>
-	<artifactId>Distributed Payment Processing System</artifactId>
+	<artifactId>distributed-payment-processing</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name/>
 	<description/>
