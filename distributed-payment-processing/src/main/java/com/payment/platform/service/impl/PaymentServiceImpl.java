@@ -4,6 +4,8 @@ import com.payment.platform.dto.request.PaymentCreateRequest;
 import com.payment.platform.dto.response.PaymentResponse;
 import com.payment.platform.entity.Payment;
 import com.payment.platform.entity.PaymentStatus;
+import com.payment.platform.exception.PaymentAlreadyProcessingException;
+import com.payment.platform.idempotency.IdempotencyService;
 import com.payment.platform.repository.PaymentRepository;
 import com.payment.platform.service.PaymentService;
 import org.springframework.stereotype.Service;
@@ -15,29 +17,57 @@ import java.util.UUID;
 public class PaymentServiceImpl implements PaymentService {
 
 	private final PaymentRepository paymentRepository;
+	private final IdempotencyService idempotencyService;
+	private final PaymentLockService paymentLockService;
 
-	public PaymentServiceImpl(PaymentRepository paymentRepository) {
+	public PaymentServiceImpl(PaymentRepository paymentRepository, IdempotencyService idempotencyService,PaymentLockService paymentLockService) {
 		this.paymentRepository = paymentRepository;
+		this.idempotencyService = idempotencyService;
+		this.paymentLockService = paymentLockService;
 	}
 
 	@Override
-	public PaymentResponse createPayment(PaymentCreateRequest request) {
+	public PaymentResponse createPayment(PaymentCreateRequest request,String idempotencyKey) {
+		String lockValue = paymentLockService.acquireLock(idempotencyKey);
 
-		Payment payment = new Payment();
+		if (lockValue == null) {
+			throw new PaymentAlreadyProcessingException(
+					"Payment is already being processed"
+			);
+		}
+		try {
 
-		payment.setPaymentId(generatePaymentId());
-		payment.setCustomerId(request.getCustomerId());
-		payment.setAmount(request.getAmount());
-		payment.setCurrency(request.getCurrency());
-		payment.setStatus(PaymentStatus.PENDING);
+	        PaymentResponse existingResponse =
+			        idempotencyService.get(idempotencyKey);
 
-		LocalDateTime now = LocalDateTime.now();
-		payment.setCreatedAt(now);
-		payment.setUpdatedAt(now);
+	        if (existingResponse != null) {
+		        return existingResponse;
+	        }
+	        Payment payment = new Payment();
 
-		Payment savedPayment = paymentRepository.save(payment);
+	        payment.setPaymentId(generatePaymentId());
+	        payment.setCustomerId(request.getCustomerId());
+	        payment.setAmount(request.getAmount());
+	        payment.setCurrency(request.getCurrency());
+	        payment.setStatus(PaymentStatus.PENDING);
 
-		return mapToResponse(savedPayment);
+	        LocalDateTime now = LocalDateTime.now();
+	        payment.setCreatedAt(now);
+	        payment.setUpdatedAt(now);
+
+	        Payment savedPayment = paymentRepository.save(payment);
+
+	        PaymentResponse response = mapToResponse(savedPayment);
+	        idempotencyService.save(idempotencyKey, response);
+
+	        return mapToResponse(savedPayment);
+        }finally {
+
+	        paymentLockService.releaseLock(
+			        idempotencyKey,
+			        lockValue
+	        );
+        }
 	}
 
 	private String generatePaymentId() {

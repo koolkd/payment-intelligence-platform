@@ -6,7 +6,7 @@ import com.payment.platform.entity.Payment;
 
 public interface PaymentService {
 
-	PaymentResponse createPayment(PaymentCreateRequest request);
+	PaymentResponse createPayment(PaymentCreateRequest request,String idempotencyKey);
 
 }
 
