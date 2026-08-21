@@ -1,11 +1,14 @@
 package com.payment.platform.service.impl;
 
+
 import com.payment.platform.dto.request.PaymentCreateRequest;
+import com.payment.platform.dto.request.PaymentCreatedEvent;
 import com.payment.platform.dto.response.PaymentResponse;
 import com.payment.platform.entity.Payment;
 import com.payment.platform.entity.PaymentStatus;
 import com.payment.platform.exception.PaymentAlreadyProcessingException;
 import com.payment.platform.idempotency.IdempotencyService;
+import com.payment.platform.kafka.producer.PaymentEventProducer;
 import com.payment.platform.repository.PaymentRepository;
 import com.payment.platform.service.PaymentService;
 import org.springframework.stereotype.Service;
@@ -19,15 +22,17 @@ public class PaymentServiceImpl implements PaymentService {
 	private final PaymentRepository paymentRepository;
 	private final IdempotencyService idempotencyService;
 	private final PaymentLockService paymentLockService;
+	private final PaymentEventProducer paymentEventProducer;
 
-	public PaymentServiceImpl(PaymentRepository paymentRepository, IdempotencyService idempotencyService,PaymentLockService paymentLockService) {
+	public PaymentServiceImpl(PaymentRepository paymentRepository, IdempotencyService idempotencyService,PaymentLockService paymentLockService,PaymentEventProducer paymentEventProducer) {
 		this.paymentRepository = paymentRepository;
 		this.idempotencyService = idempotencyService;
 		this.paymentLockService = paymentLockService;
+		this.paymentEventProducer=paymentEventProducer;
 	}
 
 	@Override
-	public PaymentResponse createPayment(PaymentCreateRequest request,String idempotencyKey) {
+	public PaymentResponse createPayment(PaymentCreateRequest request, String idempotencyKey) {
 		String lockValue = paymentLockService.acquireLock(idempotencyKey);
 
 		if (lockValue == null) {
@@ -56,6 +61,17 @@ public class PaymentServiceImpl implements PaymentService {
 	        payment.setUpdatedAt(now);
 
 	        Payment savedPayment = paymentRepository.save(payment);
+
+			PaymentCreatedEvent event = new PaymentCreatedEvent(
+					savedPayment.getPaymentId(),
+					savedPayment.getCustomerId(),
+					savedPayment.getAmount(),
+					savedPayment.getCurrency(),
+					savedPayment.getStatus(),
+					savedPayment.getCreatedAt()
+			);
+
+			paymentEventProducer.publish(event);
 
 	        PaymentResponse response = mapToResponse(savedPayment);
 	        idempotencyService.save(idempotencyKey, response);
