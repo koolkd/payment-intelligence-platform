@@ -1,7 +1,8 @@
 package com.payment.platform.kafka.consumer;
 
 import com.payment.platform.dto.request.PaymentCreatedEvent;
-import com.payment.platform.service.PaymentProcessingService;
+import com.payment.platform.payment.PaymentProcessingResult;
+import com.payment.platform.service.impl.PaymentProcessingService;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,7 @@ public class PaymentCreatedConsumer {
     public void consume(PaymentCreatedEvent event) {
         System.out.println("Received payment event: " + event.getPaymentId());
 
-        paymentProcessingService.process(event);
+	    PaymentProcessingResult result =
+			    paymentProcessingService.process(event);
     }
 }

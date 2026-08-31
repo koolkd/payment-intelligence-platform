@@ -3,7 +3,7 @@ package com.payment.platform.controller;
 
 import com.payment.platform.dto.request.PaymentCreateRequest;
 import com.payment.platform.dto.response.PaymentResponse;
-import com.payment.platform.service.PaymentService;
+import com.payment.platform.service.impl.PaymentService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

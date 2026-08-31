@@ -35,6 +35,9 @@ public class Payment {
 	@Column(name = "updated_at", nullable = false)
 	private LocalDateTime updatedAt;
 
+	@Column(name = "provider_transaction_id")
+	private String providerTransactionId;
+
 	public Payment() {
 	}
 
@@ -102,5 +105,13 @@ public class Payment {
 
 	public void setUpdatedAt(LocalDateTime updatedAt) {
 		this.updatedAt = updatedAt;
+	}
+
+	public void setProviderTransactionId(String providerTransactionId) {
+		this.providerTransactionId = providerTransactionId;
+	}
+
+	public String getProviderTransactionId() {
+		return providerTransactionId;
 	}
 }
